@@ -1,0 +1,24 @@
+apiVersion: operator.wnguddn777.com/v1alpha1
+kind: ServiceOperator
+metadata:
+  labels:
+    app.kubernetes.io/name: serviceoperator
+    app.kubernetes.io/instance: serviceoperator-sample
+    app.kubernetes.io/part-of: service-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: service-operator
+  name: serviceoperator-sample
+spec:
+  serviceType: NodePort # ServiceType은 NodePort로 설정
+  nodePort: 32000
+  replicas: 3  # 복제본 수
+  image: nginx:latest  # 사용할 컨테이너 이미지
+  port: 80  # 서비스 포트
+  resources:  # 리소스 요청 및 제한 설정
+    requests:
+      memory: "64Mi"
+      cpu: "250m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m"
+  containerPort: 8080
