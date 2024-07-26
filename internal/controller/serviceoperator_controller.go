@@ -46,35 +46,25 @@ type ServiceOperatorReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the ServiceOperator object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
+// Reconcile reconciles a ServiceOperator object
 func (r *ServiceOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	// Start by declaring the custom resource to be type "ServiceOperator"
+	// Retrieve the custom resource
 	customResource := &operatorv1alpha1.ServiceOperator{}
-
-	// Retrieve the resource that triggered this reconciliation
 	err := r.Client.Get(context.Background(), req.NamespacedName, customResource)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Custom resource not found, so delete associated resources if they exist
+			// Custom resource not found, delete associated resources
 			log.Info(fmt.Sprintf(`Custom resource for service "%s" does not exist, deleting associated resources`, req.Name))
 
-			// Try and delete the resources
+			// Delete resources
 			deployErr := r.Client.Delete(ctx, newDeployment(req.Name, req.Namespace, "n/a", nil, nil, corev1.ResourceRequirements{}))
 			if deployErr != nil && !errors.IsNotFound(deployErr) {
 				log.Error(deployErr, fmt.Sprintf(`Failed to delete deployment "%s"`, req.Name))
 			}
 
-			serviceErr := r.Client.Delete(ctx, newService(req.Name, req.Namespace, "", nil, nil))
+			serviceErr := r.Client.Delete(ctx, newService(req.Name, req.Namespace, corev1.ServiceTypeClusterIP, nil, nil))
 			if serviceErr != nil && !errors.IsNotFound(serviceErr) {
 				log.Error(serviceErr, fmt.Sprintf(`Failed to delete service "%s"`, req.Name))
 			}
@@ -91,7 +81,8 @@ func (r *ServiceOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Create or update Deployment
-	err = r.Client.Create(ctx, newDeployment(req.Name, req.Namespace, customResource.Spec.Image, customResource.Spec.ContainerPort, customResource.Spec.Replicas, customResource.Spec.Resources))
+	err = r.Client.Create(ctx, newDeployment(req.Name, req.Namespace, customResource.Spec.Image, customResource.Spec.ContainerPort,
+		customResource.Spec.Replicas, customResource.Spec.Resources))
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			log.Info(fmt.Sprintf(`Deployment for service "%s" already exists`, customResource.Name))
@@ -111,34 +102,26 @@ func (r *ServiceOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 				patch := client.StrategicMergeFrom(deployment.DeepCopy())
 				deployment.Spec.Template.Spec.Containers[0].Image = desiredImage
-				patch.Data(&deployment)
-
 				err := r.Client.Patch(ctx, &deployment, patch)
 				if err != nil {
-					log.Error(err, fmt.Sprintf(`Failed to update deployment  "%s"`, customResource.Name))
+					log.Error(err, fmt.Sprintf(`Failed to update deployment "%s"`, customResource.Name))
 					return ctrl.Result{}, err
 				}
 			}
 		} else {
-			log.Error(err, fmt.Sprintf(`Failed to create deployment  "%s"`, customResource.Name))
+			log.Error(err, fmt.Sprintf(`Failed to create deployment "%s"`, customResource.Name))
 			return ctrl.Result{}, err
 		}
 	}
 
-	// Determine the service type
-	serviceType := customResource.Spec.ServiceType
-	if serviceType == "" {
-		serviceType = corev1.ServiceTypeClusterIP
-	}
-
 	// Create or update Service
-	err = r.Client.Create(ctx, newService(req.Name, req.Namespace, serviceType, customResource.Spec.NodePort, customResource.Spec.Port))
+	err = r.Client.Create(ctx, newService(req.Name, req.Namespace, customResource.Spec.ServiceType, customResource.Spec.NodePort, customResource.Spec.Port))
 	if err != nil {
 		if errors.IsInvalid(err) && strings.Contains(err.Error(), "provided port is already allocated") {
 			log.Info(fmt.Sprintf(`Service "%s" already exists`, customResource.Name))
 			// TODO: handle service updates gracefully
 		} else {
-			log.Error(err, fmt.Sprintf(`Failed to create service  "%s"`, customResource.Name))
+			log.Error(err, fmt.Sprintf(`Failed to create service "%s"`, customResource.Name))
 			return ctrl.Result{}, err
 		}
 	}
@@ -153,6 +136,7 @@ func (r *ServiceOperatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// setResourceLabels sets labels for resources created by the operator
 func setResourceLabels(name string) map[string]string {
 	return map[string]string{
 		"serviceoperator": name,
@@ -200,7 +184,6 @@ func newDeployment(name, namespace, image string, containerPort *int32, replicas
 	}
 }
 
-// newService creates a new Service resource
 // newService creates a new Service resource
 func newService(name, namespace string, serviceType corev1.ServiceType, nodePort, port *int32) *corev1.Service {
 	// Set default port if not specified
