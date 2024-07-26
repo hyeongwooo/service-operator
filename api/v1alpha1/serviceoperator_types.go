@@ -28,6 +28,7 @@ import (
 type ServiceOperatorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
 	// +kubebuilder:validation:Minimum=30000
 	// +kubebuilder:validation:Maximum=32767
 	NodePort *int32 `json:"nodePort,omitempty"`

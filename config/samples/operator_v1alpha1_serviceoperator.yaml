@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/created-by: service-operator
   name: serviceoperator-sample
 spec:
-  serviceType: NodePort # ServiceType은 NodePort로 설정
+  serviceType: ClusterIP # ServiceType은 NodePort로 설정
   nodePort: 32000
   replicas: 3  # 복제본 수
   image: nginx:latest  # 사용할 컨테이너 이미지
