@@ -103,10 +103,10 @@ func (r *ServiceOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Determine the service type
-	serviceType := customResource.Spec.ServiceType
-	if serviceType == "" {
-		serviceType = corev1.ServiceTypeClusterIP
-	}
+	// serviceType := customResource.Spec.ServiceType
+	// if serviceType == "" {
+	// 	serviceType = corev1.ServiceTypeClusterIP
+	// }
 
 	service := &corev1.Service{}
 	serviceNamespacedName := types.NamespacedName{
